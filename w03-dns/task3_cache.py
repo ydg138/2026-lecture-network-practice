@@ -64,20 +64,39 @@ class BaselineCache:
 
 
 class YourCache:
-    """Your cache.
+    """A TTL-respecting DNS cache.
 
-    Same interface: __init__(upstream), lookup(name, now) -> address, stats().
-    `upstream(name)` costs a network round trip and returns (address, ttl).
-    The TTL is in seconds and it is the authoritative answer's own TTL -
-    the baseline throws it away.
+    Fixes to the baseline, both with the same root cause (it ignores the TTL
+    that upstream hands back and uses one fixed 60 s lifetime instead):
+
+    * correctness: a record with TTL < 60 s (www.microsoft.com 20 s,
+      www.cnn.com 30 s) was served after it had expired -> stale answers.
+    * performance: a record with TTL > 60 s (up to 86400 s) was thrown away
+      after 60 s and fetched again although it was still valid.
+
+    Here every entry lives exactly as long as its own TTL says. Lookup is a
+    dict (O(1)) instead of a linear scan over a list.
     """
 
     def __init__(self, upstream):
-        self.upstream = upstream
-        raise NotImplementedError("write your cache")
+        self.upstream = upstream  # upstream(name) -> (address, ttl)
+        self.entries = {}         # name -> (address, expires_at)
+        self.hits = 0
+        self.misses = 0
 
     def lookup(self, name, now):
-        raise NotImplementedError("write your cache")
+        entry = self.entries.get(name)
+        if entry is not None:
+            address, expires_at = entry
+            if now <= expires_at:         # still inside its TTL -> serve it
+                self.hits += 1
+                return address
+            del self.entries[name]        # expired: never serve it
+        address, ttl = self.upstream(name)
+        self.misses += 1
+        self.entries[name] = (address, now + ttl)
+        return address
 
     def stats(self):
-        return {}
+        return {"entries": len(self.entries), "hits": self.hits,
+                "misses": self.misses}

@@ -1,0 +1,514 @@
+{
+  "networks": {
+    "wifi": {
+      "collected_at": "2026-09-28 16:00:10",
+      "sites": {
+        "www.microsoft.com": {
+          "chain": [
+            "www.microsoft.com",
+            "www.microsoft.com-c-3.edgekey.net",
+            "e13678.dscb.akamaiedge.net"
+          ],
+          "answers": {
+            "system": [
+              "104.75.39.192"
+            ],
+            "google": [
+              "104.75.39.192"
+            ],
+            "quad9": [
+              "23.35.101.225"
+            ]
+          }
+        },
+        "www.netflix.com": {
+          "chain": [
+            "www.netflix.com",
+            "www.prod.ftl.netflix.com"
+          ],
+          "answers": {
+            "system": [
+              "207.45.72.1",
+              "207.45.73.1"
+            ],
+            "google": [
+              "207.45.72.1",
+              "207.45.73.1"
+            ],
+            "quad9": [
+              "207.45.72.1",
+              "207.45.73.1"
+            ]
+          }
+        },
+        "www.adobe.com": {
+          "chain": [
+            "www.adobe.com",
+            "www.adobe.com.edgesuite.net",
+            "a1319.dscr.akamai.net"
+          ],
+          "answers": {
+            "system": [
+              "23.76.153.115",
+              "23.76.153.121"
+            ],
+            "google": [
+              "23.76.153.115",
+              "23.76.153.121"
+            ],
+            "quad9": [
+              "23.46.228.102",
+              "23.46.228.106"
+            ]
+          }
+        },
+        "www.cnn.com": {
+          "chain": [
+            "www.cnn.com",
+            "cnn-tls.map.fastly.net"
+          ],
+          "answers": {
+            "system": [
+              "146.75.51.5"
+            ],
+            "google": [
+              "151.101.131.5",
+              "151.101.195.5",
+              "151.101.3.5",
+              "151.101.67.5"
+            ],
+            "quad9": [
+              "151.101.131.5",
+              "151.101.195.5",
+              "151.101.3.5",
+              "151.101.67.5"
+            ]
+          }
+        },
+        "www.apple.com": {
+          "chain": [
+            "www.apple.com",
+            "www-apple-com.v.aaplimg.com",
+            "www.apple.com.edgekey.net",
+            "e6858.dsce9.akamaiedge.net"
+          ],
+          "answers": {
+            "system": [
+              "184.31.228.249"
+            ],
+            "google": [
+              "184.31.228.249"
+            ],
+            "quad9": [
+              "23.217.180.246"
+            ]
+          }
+        },
+        "www.korea.ac.kr": {
+          "chain": [
+            "www.korea.ac.kr"
+          ],
+          "answers": {
+            "system": [
+              "163.152.6.10"
+            ],
+            "google": [
+              "163.152.6.10"
+            ],
+            "quad9": [
+              "163.152.6.10"
+            ]
+          }
+        },
+        "www.stanford.edu": {
+          "chain": [
+            "www.stanford.edu",
+            "stanford.netlifyglobalcdn.com"
+          ],
+          "answers": {
+            "system": [
+              "15.197.167.90",
+              "3.33.186.135"
+            ],
+            "google": [
+              "15.197.167.90",
+              "3.33.186.135"
+            ],
+            "quad9": [
+              "15.197.167.90",
+              "3.33.186.135"
+            ]
+          }
+        },
+        "www.bbc.co.uk": {
+          "chain": [
+            "www.bbc.co.uk",
+            "www.bbc.co.uk.pri.bbc.co.uk",
+            "bbc.map.fastly.net"
+          ],
+          "answers": {
+            "system": [
+              "146.75.48.81"
+            ],
+            "google": [
+              "151.101.0.81",
+              "151.101.128.81",
+              "151.101.192.81",
+              "151.101.64.81"
+            ],
+            "quad9": [
+              "151.101.0.81",
+              "151.101.128.81",
+              "151.101.192.81",
+              "151.101.64.81"
+            ]
+          }
+        },
+        "www.spotify.com": {
+          "chain": [
+            "www.spotify.com",
+            "atc.spotify.map.fastly.net"
+          ],
+          "answers": {
+            "system": [
+              "146.75.51.42"
+            ],
+            "google": [
+              "151.101.131.42",
+              "151.101.195.42",
+              "151.101.3.42",
+              "151.101.67.42"
+            ],
+            "quad9": [
+              "151.101.131.42",
+              "151.101.195.42",
+              "151.101.3.42",
+              "151.101.67.42"
+            ]
+          }
+        },
+        "www.github.com": {
+          "chain": [
+            "www.github.com",
+            "github.com"
+          ],
+          "answers": {
+            "system": [
+              "20.200.245.247"
+            ],
+            "google": [
+              "20.200.245.247"
+            ],
+            "quad9": [
+              "20.27.177.113"
+            ]
+          }
+        },
+        "www.wikipedia.org": {
+          "chain": [
+            "www.wikipedia.org",
+            "dyna.wikimedia.org"
+          ],
+          "answers": {
+            "system": [
+              "103.102.166.224"
+            ],
+            "google": [
+              "103.102.166.224"
+            ],
+            "quad9": [
+              "103.102.166.224"
+            ]
+          }
+        },
+        "www.nytimes.com": {
+          "chain": [
+            "www.nytimes.com",
+            "www.prd.map.nytimes.com",
+            "www.prd.map.nytimes.xovr.nyt.net",
+            "nytimes.map.fastly.net"
+          ],
+          "answers": {
+            "system": [
+              "146.75.49.164"
+            ],
+            "google": [
+              "151.101.1.164",
+              "151.101.129.164",
+              "151.101.193.164",
+              "151.101.65.164"
+            ],
+            "quad9": [
+              "151.101.1.164",
+              "151.101.129.164",
+              "151.101.193.164",
+              "151.101.65.164"
+            ]
+          }
+        }
+      }
+    },
+    "tethering": {
+      "collected_at": "2026-09-28 16:02:22",
+      "sites": {
+        "www.microsoft.com": {
+          "chain": [
+            "www.microsoft.com",
+            "www.microsoft.com-c-3.edgekey.net",
+            "e13678.dscb.akamaiedge.net"
+          ],
+          "answers": {
+            "system": [
+              "104.74.176.230"
+            ],
+            "google": [
+              "104.74.176.230"
+            ],
+            "quad9": [
+              "23.55.210.102"
+            ]
+          }
+        },
+        "www.netflix.com": {
+          "chain": [
+            "www.netflix.com",
+            "www.prod.ftl.netflix.com"
+          ],
+          "answers": {
+            "system": [
+              "207.45.72.1",
+              "207.45.73.1"
+            ],
+            "google": [
+              "207.45.72.1",
+              "207.45.73.1"
+            ],
+            "quad9": [
+              "207.45.72.1",
+              "207.45.73.1"
+            ]
+          }
+        },
+        "www.adobe.com": {
+          "chain": [
+            "www.adobe.com",
+            "www.adobe.com.edgesuite.net",
+            "a1319.dscr.akamai.net"
+          ],
+          "answers": {
+            "system": [
+              "23.32.4.105",
+              "23.32.4.107",
+              "23.32.4.121",
+              "23.32.4.136",
+              "23.32.4.138",
+              "23.32.4.32",
+              "23.32.4.33",
+              "23.32.4.34",
+              "23.32.4.9"
+            ],
+            "google": [
+              "23.32.4.104",
+              "23.32.4.107",
+              "23.32.4.56",
+              "23.32.4.72",
+              "23.32.4.74",
+              "23.32.4.80",
+              "23.32.4.88",
+              "23.32.4.97",
+              "23.32.4.99"
+            ],
+            "quad9": [
+              "23.46.228.102",
+              "23.46.228.106"
+            ]
+          }
+        },
+        "www.cnn.com": {
+          "chain": [
+            "www.cnn.com",
+            "cnn-tls.map.fastly.net"
+          ],
+          "answers": {
+            "system": [
+              "146.75.51.5"
+            ],
+            "google": [
+              "151.101.131.5",
+              "151.101.195.5",
+              "151.101.3.5",
+              "151.101.67.5"
+            ],
+            "quad9": [
+              "151.101.131.5",
+              "151.101.195.5",
+              "151.101.3.5",
+              "151.101.67.5"
+            ]
+          }
+        },
+        "www.apple.com": {
+          "chain": [
+            "www.apple.com",
+            "www-apple-com.v.aaplimg.com",
+            "www.apple.com.edgekey.net",
+            "e6858.dsce9.akamaiedge.net"
+          ],
+          "answers": {
+            "system": [
+              "23.41.89.203"
+            ],
+            "google": [
+              "184.31.228.249"
+            ],
+            "quad9": [
+              "23.217.180.246"
+            ]
+          }
+        },
+        "www.korea.ac.kr": {
+          "chain": [
+            "www.korea.ac.kr"
+          ],
+          "answers": {
+            "system": [
+              "163.152.6.10"
+            ],
+            "google": [
+              "163.152.6.10"
+            ],
+            "quad9": [
+              "163.152.6.10"
+            ]
+          }
+        },
+        "www.stanford.edu": {
+          "chain": [
+            "www.stanford.edu",
+            "stanford.netlifyglobalcdn.com"
+          ],
+          "answers": {
+            "system": [
+              "15.197.167.90",
+              "3.33.186.135"
+            ],
+            "google": [
+              "15.197.167.90",
+              "3.33.186.135"
+            ],
+            "quad9": [
+              "15.197.167.90",
+              "3.33.186.135"
+            ]
+          }
+        },
+        "www.bbc.co.uk": {
+          "chain": [
+            "www.bbc.co.uk",
+            "www.bbc.co.uk.pri.bbc.co.uk",
+            "bbc.map.fastly.net"
+          ],
+          "answers": {
+            "system": [
+              "146.75.48.81"
+            ],
+            "google": [
+              "151.101.0.81",
+              "151.101.128.81",
+              "151.101.192.81",
+              "151.101.64.81"
+            ],
+            "quad9": [
+              "151.101.0.81",
+              "151.101.128.81",
+              "151.101.192.81",
+              "151.101.64.81"
+            ]
+          }
+        },
+        "www.spotify.com": {
+          "chain": [
+            "www.spotify.com",
+            "atc.spotify.map.fastly.net"
+          ],
+          "answers": {
+            "system": [
+              "146.75.51.42"
+            ],
+            "google": [
+              "151.101.131.42",
+              "151.101.195.42",
+              "151.101.3.42",
+              "151.101.67.42"
+            ],
+            "quad9": [
+              "151.101.131.42",
+              "151.101.195.42",
+              "151.101.3.42",
+              "151.101.67.42"
+            ]
+          }
+        },
+        "www.github.com": {
+          "chain": [
+            "www.github.com",
+            "github.com"
+          ],
+          "answers": {
+            "system": [
+              "20.200.245.247"
+            ],
+            "google": [
+              "20.200.245.247"
+            ],
+            "quad9": [
+              "20.27.177.113"
+            ]
+          }
+        },
+        "www.wikipedia.org": {
+          "chain": [
+            "www.wikipedia.org",
+            "dyna.wikimedia.org"
+          ],
+          "answers": {
+            "system": [
+              "103.102.166.224"
+            ],
+            "google": [
+              "103.102.166.224"
+            ],
+            "quad9": [
+              "103.102.166.224"
+            ]
+          }
+        },
+        "www.nytimes.com": {
+          "chain": [
+            "www.nytimes.com",
+            "www.prd.map.nytimes.com",
+            "www.prd.map.nytimes.xovr.nyt.net",
+            "nytimes.map.fastly.net"
+          ],
+          "answers": {
+            "system": [
+              "146.75.49.164"
+            ],
+            "google": [
+              "151.101.1.164",
+              "151.101.129.164",
+              "151.101.193.164",
+              "151.101.65.164"
+            ],
+            "quad9": [
+              "151.101.1.164",
+              "151.101.129.164",
+              "151.101.193.164",
+              "151.101.65.164"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

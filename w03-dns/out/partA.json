@@ -1,0 +1,9 @@
+{
+  "A2_query_packet": "No. 1",
+  "A2_response_packet": "No. 2",
+  "A2_transaction_id": "0xba3d",
+  "A3_delegation_packet": "No. 4 (kr. server -> korea.ac.kr. : 2 NS in Authority + 2 glue A, answer count 0)",
+  "A3_answer_packet": "No. 6 (www.korea.ac.kr A 163.152.6.10, authoritative aa=1)",
+  "A4_largest_response_bytes": "383",
+  "A4_why_large": "No. 2, root server's delegation to kr.: 6 NS records in Authority + 10 glue records (6 A, 4 AAAA) in Additional"
+}

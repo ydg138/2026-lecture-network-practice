@@ -3,36 +3,28 @@
 
 Textbook §2.4.2 - §2.4.3.
 
-`dig +trace` walks root -> TLD -> authoritative for you. In this task you do
-that walk yourself: start at a root server, read the delegation it returns,
-ask the next server, and keep going until somebody answers authoritatively.
-
-You may shell out to `dig` for the transport, or use a DNS library
-(`dnspython` is in the container). Either is fine - what matters is that
-*you* follow the delegations rather than letting a tool do it.
-
-    python3 task1_resolve.py www.korea.ac.kr
-    python3 task1_resolve.py --verify        # check yourself against dig
-
-Pass condition
---------------
-`--verify` resolves five names with your resolver and with `dig`, and the
-addresses must agree. A name behind a CDN may legitimately return a different
-address each time; the harness compares the *set of authoritative nameservers*
-you ended at for those, not the address.
+This version performs the DNS hierarchy walk itself:
+root -> TLD -> authoritative server.
+It never asks a public/local recursive resolver to do the lookup for it.
 """
-import argparse, subprocess, sys
+import argparse
+import subprocess
+import sys
 
-# Root servers. Everything starts here; there is no earlier step.
+import dns.exception
+import dns.flags
+import dns.message
+import dns.name
+import dns.query
+import dns.rdatatype
+
+
 ROOT_SERVERS = [
     "198.41.0.4",       # a.root-servers.net
     "199.9.14.201",     # b.root-servers.net
     "192.33.4.12",      # c.root-servers.net
 ]
 
-# (name, kind).  "stable" names must match dig exactly.  "cdn" names are served
-# from many replicas and may legitimately give you a different address than dig
-# got a second earlier - for those we only require that you reached an answer.
 VERIFY_NAMES = [
     ("www.korea.ac.kr", "stable"),
     ("dns.google", "stable"),
@@ -43,43 +35,187 @@ VERIFY_NAMES = [
 
 
 class Resolver:
-    """Your iterative resolver.
+    """A small iterative DNS resolver using non-recursive DNS queries."""
 
-    The whole point is that you never ask a server to recurse for you.
-    You ask one server, it says "not mine, ask over there", and you go there.
+    def __init__(self, timeout=2.0, max_depth=20):
+        self.timeout = timeout
+        self.max_depth = max_depth
 
-    Suggested shape - but it is yours to design:
+    @staticmethod
+    def _normalise_name(name):
+        """Return a fully-qualified DNS name with a trailing dot."""
+        if not name.endswith("."):
+            return name + "."
+        return name
 
-        resolve(name) -> (address, path)
-            address : the A record you ended up with, as a string
-            path    : the servers you asked, in order, so you can show your work
+    def _query(self, server, name, path):
+        """Ask one server for an A record without recursion."""
+        # R4: record every server we actually try, including one that times out.
+        path.append(server)
 
-    Things you will hit, in roughly this order:
+        qname = dns.name.from_text(self._normalise_name(name))
+        query = dns.message.make_query(qname, dns.rdatatype.A)
+        # The important part of this lab: do NOT ask the server to recurse.
+        query.flags &= ~dns.flags.RD
 
-    1.  A delegation gives you NS *names*, sometimes with glue A records and
-        sometimes without. No glue means you have to resolve that nameserver's
-        name first - which is another walk. Decide what you do there.
-    2.  A server may not answer. Try the next one rather than giving up.
-    3.  CNAMEs. The answer you get back may be a different name than the one
-        you asked for, and you have to start again with that name.
-    4.  Loops. Cap your depth.
+        try:
+            response = dns.query.udp(query, server, timeout=self.timeout)
+        except (dns.exception.Timeout, OSError, EOFError) as exc:
+            raise TimeoutError(f"DNS server {server} did not answer: {exc}") from exc
 
-    If you shell out to dig, the flag you want is `+norecurse`, so that the
-    server you ask replies with a delegation instead of doing the work:
+        # Some responses may be truncated over UDP. Retry over TCP.
+        if response.flags & dns.flags.TC:
+            response = dns.query.tcp(query, server, timeout=self.timeout)
 
-        dig @198.41.0.4 www.korea.ac.kr +norecurse
-    """
+        return response
+
+    @staticmethod
+    def _answer_a(response, qname):
+        """Return an A record in the answer that corresponds to qname."""
+        for rrset in response.answer:
+            if rrset.rdtype == dns.rdatatype.A and rrset.name == qname:
+                for rr in rrset:
+                    return rr.address
+        return None
+
+    @staticmethod
+    def _answer_cname(response, qname):
+        """Return a CNAME target if qname is answered by a CNAME."""
+        for rrset in response.answer:
+            if rrset.rdtype == dns.rdatatype.CNAME and rrset.name == qname:
+                for rr in rrset:
+                    return rr.target.to_text()
+        return None
+
+    @staticmethod
+    def _referral(response):
+        """Return NS names from the authority section, if this is a referral."""
+        ns_names = []
+        for rrset in response.authority:
+            if rrset.rdtype != dns.rdatatype.NS:
+                continue
+            for rr in rrset:
+                ns_names.append(rr.target.to_text())
+        return ns_names
+
+    @staticmethod
+    def _glue_addresses(response, ns_names):
+        """Return glue A records for the referred nameservers."""
+        wanted = {dns.name.from_text(n) for n in ns_names}
+        addresses = {}
+        for rrset in response.additional:
+            if rrset.rdtype != dns.rdatatype.A or rrset.name not in wanted:
+                continue
+            addresses.setdefault(rrset.name.to_text(), [])
+            addresses[rrset.name.to_text()].extend(rr.address for rr in rrset)
+        return addresses
+
+    def _resolve_ns_name(self, ns_name, path, depth):
+        """Resolve a nameserver hostname when a delegation has no glue."""
+        if depth >= self.max_depth:
+            raise RuntimeError("maximum resolution depth reached while resolving nameserver")
+        # R3: no glue means we perform another complete iterative walk for the
+        # nameserver's own hostname, starting again at a root server.
+        address, _ = self._resolve(self._normalise_name(ns_name), path, depth + 1)
+        return address
+
+    def _resolve(self, name, path, depth):
+        """Internal iterative walk. Nested no-glue walks share the same path."""
+        if depth >= self.max_depth:
+            raise RuntimeError("maximum resolution depth reached (possible loop)")
+
+        qname = dns.name.from_text(self._normalise_name(name))
+        current_servers = list(ROOT_SERVERS)
+        cname_seen = set()
+
+        while True:
+            if depth >= self.max_depth:
+                raise RuntimeError("maximum resolution depth reached (possible loop)")
+
+            last_error = None
+            response = None
+            answered_by = None
+
+            # R4: if a server does not answer, try another server.
+            for server in current_servers:
+                try:
+                    response = self._query(server, qname.to_text(), path)
+                    answered_by = server
+                    break
+                except Exception as exc:
+                    last_error = exc
+                    continue
+
+            if response is None:
+                raise RuntimeError(
+                    f"no DNS server answered for {qname.to_text()}: {last_error}"
+                )
+
+            # 1) Direct A answer.
+            address = self._answer_a(response, qname)
+            if address is not None:
+                return address, path
+
+            # 2) CNAME: restart the walk for the target name.
+            cname = self._answer_cname(response, qname)
+            if cname is not None:
+                target = self._normalise_name(cname)
+                if target in cname_seen or target == qname.to_text():
+                    raise RuntimeError("CNAME loop detected")
+                cname_seen.add(qname.to_text())
+                qname = dns.name.from_text(target)
+                current_servers = list(ROOT_SERVERS)
+                depth += 1
+                continue
+
+            # 3) Referral: follow the NS delegation.
+            ns_names = self._referral(response)
+            if ns_names:
+                glue = self._glue_addresses(response, ns_names)
+                next_servers = []
+
+                # Prefer glue supplied by the referring server.
+                for ns_name in ns_names:
+                    next_servers.extend(glue.get(self._normalise_name(ns_name), []))
+
+                # No glue for a nameserver: resolve that nameserver's hostname first.
+                if not next_servers:
+                    for ns_name in ns_names:
+                        try:
+                            next_servers.append(
+                                self._resolve_ns_name(ns_name, path, depth + 1)
+                            )
+                        except Exception:
+                            continue
+
+                if next_servers:
+                    current_servers = list(dict.fromkeys(next_servers))
+                    depth += 1
+                    continue
+
+            # 4) No usable answer/delegation.
+            rcode = response.rcode()
+            raise RuntimeError(
+                f"server {answered_by} returned no A answer/delegation for {qname.to_text()} "
+                f"(rcode={rcode})"
+            )
 
     def resolve(self, name):
-        raise NotImplementedError(
-            "Implement the iterative walk: root -> TLD -> authoritative")
+        """Return (IPv4 address, path of DNS servers asked in order)."""
+        path = []
+        address, _ = self._resolve(name, path, 0)
+        return address, path
 
 
 # ------------------------------------------------------------------- harness
+
 def dig_answer(name):
     """What the system resolver says, for comparison."""
-    out = subprocess.run(["dig", "+short", name, "A"],
-                         capture_output=True, text=True).stdout
+    out = subprocess.run(
+        ["dig", "+short", name, "A"],
+        capture_output=True,
+        text=True,
+    ).stdout
     return [l for l in out.split() if l and l[0].isdigit()]
 
 
@@ -103,9 +239,11 @@ def verify():
         else:
             note = "  <- should have matched"
             failures += 1
-        print(f"  {'FAIL' if note.endswith('matched') else 'ok  '}  {name:<22} "
-              f"you={addr:<16} dig={','.join(expected) or '-'}   "
-              f"hops={len(path)}{note}")
+        print(
+            f"  {'FAIL' if note.endswith('matched') else 'ok  '}  {name:<22} "
+            f"you={addr:<16} dig={','.join(expected) or '-'}   "
+            f"hops={len(path)}{note}"
+        )
     print(f"\n  {len(VERIFY_NAMES) - failures}/{len(VERIFY_NAMES)} ok")
     return 1 if failures else 0
 
