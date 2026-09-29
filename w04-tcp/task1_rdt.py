@@ -53,40 +53,91 @@ class UnreliableChannel:
 
 
 class Sender:
-    """Your sender.
+    """Selective Repeat 송신자.
 
-    Requirements are in task1.md. The short version:
-
-      - break `data` into PAYLOAD-sized pieces and number them
-      - retransmit what is not acknowledged
-      - do not assume an ACK means what you think it means until you have
-        checked the number on it
-
-    You choose the protocol: stop-and-wait is the easiest to get right and the
-    slowest; a sliding window is the point of §3.4.3. Say which you chose and
-    why in observation.md.
+    - data를 PAYLOAD(8바이트) 조각으로 나누고 0, 1, 2 ... 번호를 붙인다 (R1)
+    - 윈도우 안의 조각들을 한꺼번에 보내고, 조각마다 따로 타이머를 둔다
+    - ACK가 안 온 채로 TIMEOUT step이 지나면 그 조각만 다시 보낸다 (R4)
+    - ACK는 번호를 확인해서 처리한다. 같은 ACK가 두 번 와도 set이라 무해하다 (R3)
     """
 
+    WINDOW = 16      # 한 번에 ACK 없이 보낼 수 있는 최대 조각 수
+    TIMEOUT = 10     # 이 step 수만큼 ACK가 없으면 재전송
+
     def __init__(self, data_channel, ack_channel, data):
-        raise NotImplementedError("write your sender")
+        self.data_ch = data_channel            # 데이터를 보내는 채널 (up)
+        self.ack_ch = ack_channel              # ACK를 받는 채널 (down)
+        self.chunks = [data[i:i + PAYLOAD] for i in range(0, len(data), PAYLOAD)]
+        self.acked = set()                     # ACK를 받은 조각 번호들
+        self.sent_at = {}                      # 조각 번호 -> 마지막으로 보낸 step
+        self.base = 0                          # 아직 ACK 안 된 가장 작은 번호
+        self.now = 0                           # 현재 step (시계 대신)
+        self.transmissions = 0                 # 관찰용: 총 전송 횟수
+        self.retransmissions = 0               # 관찰용: 그중 재전송 횟수
 
     def step(self):
-        """Do one unit of work. Return False when you believe you are done."""
-        raise NotImplementedError
+        self.now += 1
+
+        # 1) 도착한 ACK를 전부 처리
+        while True:
+            pkt = self.ack_ch.receive()
+            if pkt is None:
+                break
+            kind, seq = pkt
+            if kind == "ACK" and 0 <= seq < len(self.chunks):
+                self.acked.add(seq)            # 중복 ACK여도 set이라 문제 없음
+
+        # 2) 윈도우 왼쪽 끝을 앞으로 민다
+        while self.base in self.acked:
+            self.base += 1
+        if self.base >= len(self.chunks):
+            return False                       # 전부 ACK됨 -> 종료 (R6)
+
+        # 3) 윈도우 안에서 (처음 보내는 것) 또는 (타임아웃된 것)을 전송
+        for seq in range(self.base, min(self.base + self.WINDOW, len(self.chunks))):
+            if seq in self.acked:
+                continue
+            first_time = seq not in self.sent_at
+            if first_time or self.now - self.sent_at[seq] >= self.TIMEOUT:
+                self.data_ch.send(("DATA", seq, self.chunks[seq]))
+                self.sent_at[seq] = self.now
+                self.transmissions += 1
+                self.retransmissions += not first_time
+        return True
 
 
 class Receiver:
-    """Your receiver. Hands back the reassembled bytes via `.data()`."""
+    """Selective Repeat 수신자.
+
+    - 순서가 뒤바뀌어 온 조각은 버퍼에 보관했다가, 빈칸이 채워지면 순서대로 내보낸다 (R2)
+    - 이미 받은 조각이 또 와도 ACK는 다시 보낸다: 지난번 ACK가 손실됐을 수 있기 때문
+    - 하지만 데이터는 절대 두 번 쓰지 않는다 (R3)
+    """
 
     def __init__(self, data_channel, ack_channel):
-        raise NotImplementedError("write your receiver")
+        self.data_ch = data_channel            # 데이터를 받는 채널 (up)
+        self.ack_ch = ack_channel              # ACK를 보내는 채널 (down)
+        self.buffer = {}                       # 먼저 도착한 조각: 번호 -> 바이트
+        self.expected = 0                      # 다음에 출력해야 할 번호
+        self.output = bytearray()
 
     def step(self):
-        raise NotImplementedError
+        while True:
+            pkt = self.data_ch.receive()
+            if pkt is None:
+                break
+            kind, seq, payload = pkt
+            if kind != "DATA":
+                continue
+            self.ack_ch.send(("ACK", seq))     # ACK는 항상 보낸다 (중복이어도)
+            if seq >= self.expected and seq not in self.buffer:
+                self.buffer[seq] = payload     # 처음 보는 조각만 저장
+            while self.expected in self.buffer:   # 연속된 조각을 순서대로 출력
+                self.output += self.buffer.pop(self.expected)
+                self.expected += 1
 
     def data(self):
-        """The bytes reassembled so far."""
-        raise NotImplementedError
+        return bytes(self.output)
 
 
 # ------------------------------------------------------------------- harness

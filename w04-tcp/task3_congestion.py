@@ -39,26 +39,38 @@ class FixedWindow:
 
 
 class YourControl:
-    """Your congestion control.
+    """Slow start + 완만한 AIMD + 손실 사건당 한 번만 반응.
 
-    Things worth knowing before you start:
-
-    * The link drains one packet per slot and the round trip is 20 slots, so
-      the pipe holds about 20 packets. Above that you are only filling a queue.
-    * The queue is 10 packets deep and drops from the tail. Filling it does not
-      make you faster - it makes you slower, and everybody behind you too.
-    * Cutting hard on every loss costs you throughput. Not cutting costs you
-      correctness. §3.7 is the argument about where between those to sit.
-    * You are allowed to grow differently before and after your first loss.
-      That distinction has a name in the textbook.
+    1) Slow start: 첫 손실 전에는 ACK마다 window += 1
+       -> RTT마다 윈도우가 두 배가 되어 빠르게 파이프(약 20)를 채운다
+    2) Congestion avoidance: ssthresh 이후에는 ACK마다 window += 1/window
+       -> RTT마다 1씩만 늘려 큐를 천천히 채운다
+    3) 손실 시 window를 0.5가 아니라 0.7배로 줄인다
+       -> 드롭 지점(파이프 20 + 큐 10 = 30) 근처에서 줄여도 약 21이 되어
+          파이프를 거의 꽉 채운 상태를 유지한다
+    4) 큐가 한 번 넘치면 여러 패킷이 한꺼번에 타임아웃되어 on_loss가 연달아 온다.
+       그것은 혼잡 사건 하나이므로, 줄인 뒤 한 윈도우만큼 ACK가 올 때까지는
+       추가 손실을 무시한다. (안 그러면 0.7^n 으로 윈도우가 무너진다)
     """
 
+    BACKOFF = 0.7
+
     def __init__(self):
-        self.window = 1
-        raise NotImplementedError("write your congestion control")
+        self.window = 1.0
+        self.ssthresh = float("inf")   # 첫 손실 전에는 무한대 -> slow start
+        self.acks = 0                  # 지금까지 받은 ACK 수
+        self.ignore_until = 0          # 이 ACK 수에 도달할 때까지 손실 무시
 
     def on_ack(self):
-        raise NotImplementedError
+        self.acks += 1
+        if self.window < self.ssthresh:
+            self.window += 1                    # slow start
+        else:
+            self.window += 1 / self.window      # congestion avoidance
 
     def on_loss(self):
-        raise NotImplementedError
+        if self.acks < self.ignore_until:
+            return                              # 같은 혼잡 사건의 나머지 손실
+        self.ssthresh = max(2.0, self.window * self.BACKOFF)
+        self.window = self.ssthresh
+        self.ignore_until = self.acks + int(self.window)
