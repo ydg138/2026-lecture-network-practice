@@ -16,6 +16,32 @@ exactly the thing you are supposed to understand this week.
 import argparse
 
 
+MASK32 = 0xFFFFFFFF
+
+
+def ip_to_int(s):
+    """'10.20.30.70' -> 32-bit int. Shifts only, no ipaddress / inet_aton."""
+    parts = s.strip().split(".")
+    if len(parts) != 4:
+        raise ValueError(f"not a dotted quad: {s!r}")
+    n = 0
+    for p in parts:
+        if not p.isdigit() or not 0 <= int(p) <= 255:
+            raise ValueError(f"bad octet {p!r} in {s!r}")
+        n = (n << 8) | int(p)
+    return n
+
+
+def int_to_ip(n):
+    """32-bit int -> 'a.b.c.d'."""
+    return ".".join(str((n >> shift) & 0xFF) for shift in (24, 16, 8, 0))
+
+
+def prefix_mask(plen):
+    """/24 -> 0xFFFFFF00. /0 -> 0 (shift by 32 would leave junk, so mask it)."""
+    return (MASK32 << (32 - plen)) & MASK32
+
+
 def parse_cidr(cidr):
     """'163.152.6.0/24' -> (network as int, prefix length).
 
@@ -23,16 +49,35 @@ def parse_cidr(cidr):
     whose host bits are set when they should not be (163.152.6.5/24 is a
     common way to write a host, but it is not a network).
     """
-    raise NotImplementedError("parse a CIDR block")
+    if "/" not in cidr:
+        raise ValueError(f"no prefix length in {cidr!r}")
+    addr_s, plen_s = cidr.split("/", 1)
+    if not plen_s.isdigit():
+        raise ValueError(f"bad prefix length in {cidr!r}")
+    plen = int(plen_s)
+    if not 0 <= plen <= 32:                                   # R1
+        raise ValueError(f"prefix length {plen} outside 0-32")
+    addr = ip_to_int(addr_s)
+    if addr & ~prefix_mask(plen) & MASK32:                    # R2
+        raise ValueError(f"{cidr} has host bits set - it is a host, not a network")
+    return addr, plen
 
 
 def network_range(cidr):
     """'163.152.6.0/24' -> (first usable, last usable, broadcast) as strings.
 
-    Careful at the edges. /31 and /32 do not have a usable host range in the
-    ordinary sense - decide what you return and say so in observation.md.
+    /31 (RFC 3021, point-to-point): both addresses are usable, no broadcast
+        -> (network, network+1, None)
+    /32 (a single host route): the one address is the only host, no broadcast
+        -> (addr, addr, None)
     """
-    raise NotImplementedError("compute the range")
+    net, plen = parse_cidr(cidr)
+    last = net | (~prefix_mask(plen) & MASK32)                # all host bits = 1
+    if plen == 32:
+        return (int_to_ip(net), int_to_ip(net), None)
+    if plen == 31:
+        return (int_to_ip(net), int_to_ip(last), None)
+    return (int_to_ip(net + 1), int_to_ip(last - 1), int_to_ip(last))
 
 
 class ForwardingTable:
@@ -43,13 +88,28 @@ class ForwardingTable:
     The default route 0.0.0.0/0 matches everything and is the shortest prefix,
     so it must lose to any other match. If two entries have the same prefix
     length, the table is malformed - say what you do.
+
+    Same (network, prefix length) added twice: the later add replaces the
+    earlier one, the way a route update overwrites the old route.
     """
 
+    def __init__(self):
+        self.routes = {}                      # (network, plen) -> next_hop
+
     def add(self, cidr, next_hop):
-        raise NotImplementedError
+        net, plen = parse_cidr(cidr)
+        self.routes[(net, plen)] = next_hop
+
+    def matches(self, address):
+        """Every entry the address falls inside, longest first."""
+        a = ip_to_int(address) if isinstance(address, str) else address
+        hits = [(plen, net, hop) for (net, plen), hop in self.routes.items()
+                if a & prefix_mask(plen) == net]
+        return sorted(hits, reverse=True)
 
     def lookup(self, address):
-        raise NotImplementedError
+        hits = self.matches(address)
+        return hits[0][2] if hits else None   # longest prefix wins (R4, R5)
 
 
 # ------------------------------------------------------------------- harness
