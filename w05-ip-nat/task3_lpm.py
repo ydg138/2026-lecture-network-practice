@@ -38,27 +38,64 @@ class LinearTable:
 
 
 class YourTable:
-    """Your table. Same three methods, same answers, fewer comparisons.
+    """Group by prefix length: one hash table per length that is in use.
 
-    Addresses and networks are plain 32-bit ints here - no strings, no parsing,
-    so that the benchmark measures your lookup and nothing else.
+    add():    tables[plen][network] = next_hop, and keep the list of lengths
+              sorted longest-first.
+    lookup(): for each length in use, longest first, mask the address and do
+              one dict lookup. The first hit is the longest match, so stop.
 
-    Two directions worth knowing about before you pick one:
-
-      * group by prefix length. There are only 33 possible lengths, and you can
-        ask them in an order that lets you stop early.
-      * walk the address one bit at a time. Each bit takes you to at most one
-        child, so the work is bounded by the address width, not by the table size.
-
-    The second is what hardware does. The first is easier and often enough.
-    Say which you chose and what it cost you in memory.
+    Work per lookup = number of *distinct prefix lengths* in the table
+    (at most 33, here 7), not the number of routes (5,000).
+    Memory: one dict entry per route, plus at most 33 small dicts.
     """
 
     def __init__(self):
-        raise NotImplementedError("write your table")
+        self.tables = {}          # plen -> {network: next_hop}
+        self.order = []           # [(mask, table)] longest prefix first
 
     def add(self, network, prefix_len, next_hop):
-        raise NotImplementedError
+        t = self.tables.get(prefix_len)
+        if t is None:
+            t = self.tables[prefix_len] = {}
+            self.order = [((0xFFFFFFFF << (32 - p)) & 0xFFFFFFFF, self.tables[p])
+                          for p in sorted(self.tables, reverse=True)]
+        t[network] = next_hop
 
     def lookup(self, address):
-        raise NotImplementedError
+        for mask, table in self.order:
+            hop = table.get(address & mask)
+            if hop is not None:
+                return hop
+        return None
+
+
+class TrieTable:
+    """For comparison: a binary trie, one bit per level (what hardware builds).
+
+    Work per lookup = at most 32 steps (the address width), whatever the
+    table size. Not used by bench.py - try it with  YourTable = TrieTable.
+    """
+
+    def __init__(self):
+        self.root = [None, None, None]        # [child0, child1, next_hop]
+
+    def add(self, network, prefix_len, next_hop):
+        node = self.root
+        for i in range(prefix_len):
+            bit = (network >> (31 - i)) & 1
+            if node[bit] is None:
+                node[bit] = [None, None, None]
+            node = node[bit]
+        node[2] = next_hop
+
+    def lookup(self, address):
+        node, best, i = self.root, None, 31
+        while node is not None:
+            if node[2] is not None:
+                best = node[2]
+            if i < 0:
+                break
+            node = node[(address >> i) & 1]
+            i -= 1
+        return best
