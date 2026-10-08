@@ -1,0 +1,36 @@
+# route-before.txt - OSPF 수렴 후, 링크를 끊기 전 (2026-10-09 00:22:52)
+# 링크: 172.19.0.0/16 = r2(eth1 172.19.0.3)-r3(eth0 172.19.0.2), 172.20.0.0/16 = r1(eth1 172.20.0.3)-r3(eth1 172.20.0.2), 172.21.0.0/16 = r1(eth0 172.21.0.3)-r2(eth0 172.21.0.2)
+# O>* 줄 = 직접 연결되지 않은 네트워크를 OSPF 로 배운 경로 (B2)
+
+===== r1 (router-id 1.1.1.1) =====
+--- show ip route ospf
+O>* 172.19.0.0/16 [110/20] via 172.20.0.2, eth1, weight 1, 00:08:35
+  *                        via 172.21.0.2, eth0, weight 1, 00:08:35
+O   172.20.0.0/16 [110/10] is directly connected, eth1, weight 1, 00:08:58
+O   172.21.0.0/16 [110/10] is directly connected, eth0, weight 1, 00:09:53
+--- show ip ospf neighbor
+Neighbor ID     Pri State           Up Time         Dead Time Address         Interface                        RXmtL RqstL DBsmL
+2.2.2.2           1 Full/DR         32m08s            31.548s 172.21.0.2      eth0:172.21.0.3                      0     0     0
+3.3.3.3           1 Full/DR         8m55s             34.746s 172.20.0.2      eth1:172.20.0.3                      0     0     0
+
+===== r2 (router-id 2.2.2.2) =====
+--- show ip route ospf
+O   172.19.0.0/16 [110/10] is directly connected, eth1, weight 1, 00:08:45
+O>* 172.20.0.0/16 [110/20] via 172.19.0.2, eth1, weight 1, 00:08:35
+  *                        via 172.21.0.3, eth0, weight 1, 00:08:35
+O   172.21.0.0/16 [110/10] is directly connected, eth0, weight 1, 00:32:58
+--- show ip ospf neighbor
+Neighbor ID     Pri State           Up Time         Dead Time Address         Interface                        RXmtL RqstL DBsmL
+1.1.1.1           1 Full/Backup     32m08s            31.462s 172.21.0.3      eth0:172.21.0.2                      0     0     0
+3.3.3.3           1 Full/DR         8m45s             34.515s 172.19.0.2      eth1:172.19.0.3                      0     0     0
+
+===== r3 (router-id 3.3.3.3) =====
+--- show ip route ospf
+O   172.19.0.0/16 [110/10] is directly connected, eth0, weight 1, 00:32:59
+O   172.20.0.0/16 [110/10] is directly connected, eth1, weight 1, 00:32:59
+O>* 172.21.0.0/16 [110/20] via 172.19.0.3, eth0, weight 1, 00:08:39
+  *                        via 172.20.0.3, eth1, weight 1, 00:08:39
+--- show ip ospf neighbor
+Neighbor ID     Pri State           Up Time         Dead Time Address         Interface                        RXmtL RqstL DBsmL
+2.2.2.2           1 Full/Backup     8m45s             31.083s 172.19.0.3      eth0:172.19.0.2                      0     0     0
+1.1.1.1           1 Full/Backup     8m55s             36.796s 172.20.0.3      eth1:172.20.0.2                      0     0     0
