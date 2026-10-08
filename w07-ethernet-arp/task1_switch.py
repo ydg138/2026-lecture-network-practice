@@ -30,7 +30,17 @@ class Switch:
     AGE_SECONDS = 300
 
     def __init__(self, ports):
-        raise NotImplementedError("write your switch")
+        self.ports = ports
+        self._entries = {}      # mac -> (port, last_seen)
+        self._now = 0.0         # time of the newest frame seen so far
+
+    def _age_out(self, now):
+        """Forget every MAC not heard from for more than AGE_SECONDS."""
+        self._now = max(self._now, now)
+        stale = [mac for mac, (_, seen) in self._entries.items()
+                 if self._now - seen > self.AGE_SECONDS]
+        for mac in stale:
+            del self._entries[mac]
 
     def handle(self, frame, in_port):
         """Learn from the source, then decide where the frame goes.
@@ -46,11 +56,28 @@ class Switch:
         Rule 5 is why a switch works at all before it has learned anything, and
         it is also what Task 3 is about.
         """
-        raise NotImplementedError
+        src, dst, now = frame
+        self._age_out(now)
+
+        # 1. learn. Overwriting covers both a new station and one that moved
+        #    (R3: newest evidence wins), and resets its age (R4).
+        self._entries[src] = (in_port, now)
+
+        # 2. every candidate list already leaves out the arrival port
+        others = [p for p in range(self.ports) if p != in_port]
+
+        if dst == self.BROADCAST:             # 3. broadcast
+            return others
+        entry = self._entries.get(dst)
+        if entry is None:                     # 5. unknown -> flood
+            return others
+        out_port = entry[0]                   # 4. known -> that one port
+        return [] if out_port == in_port else [out_port]
 
     def table(self):
         """{mac: port} as currently learned. Aged-out entries must be gone."""
-        raise NotImplementedError
+        return {mac: port for mac, (port, seen) in self._entries.items()
+                if self._now - seen <= self.AGE_SECONDS}
 
 
 # ------------------------------------------------------------------- harness
